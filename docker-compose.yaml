@@ -1,0 +1,90 @@
+version: "3.8"
+
+networks:
+  citus_net:
+    driver: bridge
+
+volumes:
+  coordinator_data:
+  worker1_data:
+  worker2_data:
+
+services:
+  coordinator:
+    image: citusdata/citus:13.0
+    hostname: coordinator
+    container_name: citus_coordinator
+    networks:
+      - citus_net
+    ports:
+      - "5439:5432"
+    environment:
+      POSTGRES_USER: citus
+      POSTGRES_PASSWORD: citus
+      POSTGRES_DB: citus
+      # Tell Citus how to connect to other nodes
+      CITUS_NODE_CONNINFO: "password=citus sslmode=prefer"
+    volumes:
+      - coordinator_data:/var/lib/postgresql/data
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf
+    command: >
+      postgres
+        -c hba_file=/etc/postgresql/pg_hba.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U citus -d citus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker1:
+    image: citusdata/citus:13.0
+    hostname: worker1
+    container_name: citus_worker1
+    networks:
+      - citus_net
+    environment:
+      POSTGRES_USER: citus
+      POSTGRES_PASSWORD: citus
+      POSTGRES_DB: citus
+    volumes:
+      - worker1_data:/var/lib/postgresql/data
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf
+    command: >
+      postgres
+        -c hba_file=/etc/postgresql/pg_hba.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U citus -d citus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      coordinator:
+        condition: service_healthy
+
+  worker2:
+    image: citusdata/citus:13.0
+    hostname: worker2
+    container_name: citus_worker2
+    networks:
+      - citus_net
+    environment:
+      POSTGRES_USER: citus
+      POSTGRES_PASSWORD: citus
+      POSTGRES_DB: citus
+    volumes:
+      - worker2_data:/var/lib/postgresql/data
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf
+    command: >
+      postgres
+        -c hba_file=/etc/postgresql/pg_hba.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U citus -d citus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      coordinator:
+        condition: service_healthy
