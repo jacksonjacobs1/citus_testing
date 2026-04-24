@@ -1,0 +1,64 @@
+# A unique identifier for the head node and workers of this cluster.
+cluster_name: ps_cluster
+
+docker:
+    image: "rayproject/ray:nightly-py313-cpu" # You can change this to latest-cpu if you don't need GPU support and want a faster startup
+    container_name: "ps_container"
+    # If true, pulls latest version of image. Otherwise, `docker run` will only pull the image
+    # if no cached version is present.
+    pull_before_run: True
+    run_options:
+        - --ulimit nofile=65536:65536
+        # - --gpus all
+        - --shm-size=12G
+        - -e POSTGRES_HOST=ps_citus   # This is the hostname of the citus docker container local to the ray node.
+
+provider:
+    type: local
+    head_ip: 10.0.0.144 # CHANGE ME to your head node's IP address
+    worker_ips: [10.0.0.54, 10.0.0.243]    # CHANGE ME to your worker nodes' IP addresses
+    cache_stopped_nodes: False  # JJ note: does not seem to have an effect for local provider.
+
+# How Ray will authenticate with newly launched nodes.
+auth:
+    ssh_user: jackson   # CHANGE ME to your username on the cluster nodes
+    ssh_private_key: ~/.ssh/id_ed25519  # CHANGE
+
+upscaling_speed: 1.0
+
+idle_timeout_minutes: 30
+
+# Files or directories to copy to the head and worker nodes.
+file_mounts: {
+    "/second_pass/": "./second_pass/",
+}
+
+# Whether changes to directories in file_mounts or cluster_synced_files in the head node
+# should sync to the worker node continuously
+file_mounts_sync_continuously: True
+
+# List of commands that will be run before `setup_commands`.
+initialization_commands: [
+    # JJ note: unclear if there is a variable for root path.
+    # docker compose -f docker-compose.yaml up citus -d,
+    # # JJ note: Worker nodes do not shut down properly, so we need to ensure they are shut down so that the new image can be pulled and run.
+    docker stop ps_container || true,
+]
+
+# List of shell commands to run to set up each nodes.
+setup_commands: []
+
+head_setup_commands: ['mkdir -p ~/.ssh', 'echo -e "Host *\n\tStrictHostKeyChecking no\n\tUserKnownHostsFile /dev/null" >> ~/.ssh/config']
+
+# Custom commands that will be run on worker nodes after common setup.
+worker_setup_commands: []
+
+# Command to start ray on the head node. You don't need to change this.
+head_start_ray_commands:
+        - ray stop
+        - ulimit -c unlimited && ray start --head --port=6379 --dashboard-port=8265 --autoscaling-config=~/ray_bootstrap_config.yaml
+
+# Command to start ray on worker nodes. You don't need to change this.
+worker_start_ray_commands:
+    - ray stop
+    - ray start --address=$RAY_HEAD_IP:6379
