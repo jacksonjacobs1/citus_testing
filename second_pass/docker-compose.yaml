@@ -1,3 +1,9 @@
+# From https://github.com/citusdata/docker/blob/master/docker-compose.yml
+
+# This file is auto generated from it's template,
+# see citusdata/tools/packaging_automation/templates/docker/latest/docker-compose.tmpl.yml.
+version: "3"
+
 services:
   master:
     container_name: "${COMPOSE_PROJECT_NAME:-citus}_master"
