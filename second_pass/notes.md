@@ -20,6 +20,31 @@ psql -U postgres -h localhost -d postgres -c "SELECT * from citus_add_node('10.0
 psql -U postgres -h localhost -d postgres -c "SELECT * FROM citus_get_active_worker_nodes();"
 ```
 
+3. Modify the `pg_hba.conf` file on each node to allow connections from all IPs (development only, not recommended for production):
+```bash
+cat > /var/lib/postgresql/18/docker/pg_hba.conf << 'EOF'
+local   all             all                                     trust
+host    all             all             127.0.0.1/32            trust
+host    all             all             ::1/128                 trust
+local   replication     all                                     trust
+host    replication     all             127.0.0.1/32            trust
+host    replication     all             ::1/128                 trust
+host    all             all             0.0.0.0/0               trust
+host    all             all             ::/0                    trust
+EOF
+```
+
+4. Restart the postgres server on each node to apply the changes:
+```bash
+su -c "pg_ctl -D /var/lib/postgresql/18/docker reload" postgres
+```
+
+
+
+
+
+
+
 Here's the connection string for the coordinator node:
 ```
 postgresql://postgres:password@10.0.0.144:5432/postgres
